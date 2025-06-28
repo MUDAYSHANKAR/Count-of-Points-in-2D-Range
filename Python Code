@@ -1,0 +1,109 @@
+import sys
+
+class FenwickTree:
+    def __init__(self, size):
+        self.tree = [0] * (size + 1)
+
+    def add(self, index, delta):
+        index += 1
+        while index < len(self.tree):
+            self.tree[index] += delta
+            index += index & (-index)
+
+    def query_prefix(self, index):
+        index += 1
+        s = 0
+        while index > 0:
+            s += self.tree[index]
+            index -= index & (-index)
+        return s
+
+def count_points_in_rectangles(points, queries):
+    all_coords_x = set()
+    all_coords_y = set()
+
+    for x, y in points:
+        all_coords_x.add(x)
+        all_coords_y.add(y)
+
+    for x1, y1, x2, y2 in queries:
+        all_coords_x.add(x1)
+        all_coords_x.add(x2)
+        all_coords_y.add(y1)
+        all_coords_y.add(y2)
+    
+    sorted_x = sorted(list(all_coords_x))
+    sorted_y = sorted(list(all_coords_y))
+    
+    map_x = {val: i for i, val in enumerate(sorted_x)}
+    map_y = {val: i for i, val in enumerate(sorted_y)}
+
+    max_y_idx = len(sorted_y)
+    
+    events = []
+    POINT = 0
+    QUERY_END = 1
+    QUERY_START = -1
+
+    for x, y in points:
+        cx = map_x[x]
+        cy = map_y[y]
+        events.append((cx, POINT, cy))
+
+    for i, (x1, y1, x2, y2) in enumerate(queries):
+        cx1 = map_x[x1]
+        cy1 = map_y[y1]
+        cx2 = map_x[x2]
+        cy2 = map_y[y2]
+        
+        events.append((cx1 - 1, QUERY_START, cy1, cy2, i))
+        events.append((cx2, QUERY_END, cy1, cy2, i))
+        
+    events.sort()
+
+    ft = FenwickTree(max_y_idx)
+    query_answers = [0] * len(queries)
+
+    for event in events:
+        x, type = event[0], event[1]
+        
+        if type == POINT:
+            cy = event[2]
+            ft.add(cy, 1)
+        else:
+            cy1, cy2, query_idx = event[2], event[3], event[4]
+            
+            count_at_y2 = ft.query_prefix(cy2)
+            count_at_y1_minus_1 = ft.query_prefix(cy1 - 1)
+            
+            range_count = count_at_y2 - count_at_y1_minus_1
+            
+            if type == QUERY_END:
+                query_answers[query_idx] += range_count
+            else: # QUERY_START
+                query_answers[query_idx] -= range_count
+
+    return query_answers
+
+
+if __name__ == '__main__':
+    points = [
+        (1, 2), (3, 1), (4, 4), (6, 2),
+        (2, 5), (5, 5), (7, 3), (8, 4)
+    ]
+    
+    queries = [
+        (2, 2, 7, 5),
+        (0, 0, 3, 3),
+        (5, 1, 8, 4)
+    ]
+    
+    print("--- Counting Points in 2D Rectangles ---")
+    print("\nInput Points:", points)
+    print("Input Queries (x1, y1, x2, y2):", queries, "\n")
+    
+    answers = count_points_in_rectangles(points, queries)
+    
+    print("--- Final Results ---")
+    for i, q in enumerate(queries):
+        print(f"Query {i+1} for rectangle {q}: Found {answers[i]} points.")
